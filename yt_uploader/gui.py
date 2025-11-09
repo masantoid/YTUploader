@@ -571,7 +571,7 @@ class UploaderGUI:
         }
 
         self._loading_form = True
-        self.accounts_data = []
+        self._update_accounts_from_config([])
         self._refresh_account_list()
         self.google_service_file_var.set("")
         self.google_spreadsheet_var.set("")
@@ -613,15 +613,7 @@ class UploaderGUI:
         self.config_path_var.set(str(self.config_path))
         self.config_info_var.set(f"Config: {self.config_path}")
 
-        self.accounts = list(config.accounts)
-        self.accounts_data = [
-            {
-                "name": acc.name,
-                "cookie_file": self._display_path(acc.cookie_file),
-                "channel_url": acc.channel_url or "",
-            }
-            for acc in config.accounts
-        ]
+        self._update_accounts_from_config(config.accounts)
 
         self._loading_form = True
         self.google_service_file_var.set(self._display_path(config.google.service_account_file))
@@ -696,11 +688,12 @@ class UploaderGUI:
             messagebox.showerror("Config Tidak Dapat Dimuat", str(exc))
             return False
 
-        self.accounts = list(config.accounts)
+        self._update_accounts_from_config(config.accounts)
         self.unsaved_changes = False
         self.unsaved_info_var.set("")
         self.status_var.set(f"Konfigurasi tersimpan di {self.config_path}.")
         self.start_button.config(state=tk.NORMAL)
+        self._refresh_account_list()
         self._refresh_cookie_accounts()
         return True
 
@@ -800,6 +793,17 @@ class UploaderGUI:
             base = self.config_path.parent if self.config_path else Path.cwd()
             path = (base / path).resolve()
         return path
+
+    def _update_accounts_from_config(self, accounts: list[AccountConfig]) -> None:
+        self.accounts = list(accounts)
+        self.accounts_data = [
+            {
+                "name": acc.name,
+                "cookie_file": self._display_path(acc.cookie_file),
+                "channel_url": acc.channel_url or "",
+            }
+            for acc in accounts
+        ]
 
     def _generate_cookie_path(self, account_name: str) -> Path:
         safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", account_name.strip()) or uuid.uuid4().hex
