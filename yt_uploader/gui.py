@@ -37,6 +37,16 @@ class UploaderGUI:
         self.sheet_status_var = tk.StringVar(value="Tekan tombol untuk menguji koneksi Google Sheets.")
         self.drive_status_var = tk.StringVar(value="Masukkan File ID atau URL untuk menguji akses Google Drive.")
 
+        self.workflow_status_vars = {
+            "config": tk.StringVar(),
+            "accounts": tk.StringVar(),
+            "integrations": tk.StringVar(),
+            "schedule": tk.StringVar(),
+            "testing": tk.StringVar(),
+        }
+
+        self._recent_cookie_feedback = ""
+
         self.config_path: Path | None = None
         self.accounts: list[AccountConfig] = []
         self.accounts_data: list[dict[str, Any]] = []
@@ -83,6 +93,8 @@ class UploaderGUI:
 
         header.grid_columnconfigure(0, weight=1)
 
+        self._build_workflow_overview()
+
         info_frame = ttk.Frame(self.root, padding=(20, 0))
         info_frame.pack(fill=tk.X)
 
@@ -107,6 +119,159 @@ class UploaderGUI:
         self._build_cookie_tab()
         self._build_testing_tab()
 
+        self._update_workflow_summary()
+
+    def _build_workflow_overview(self) -> None:
+        container = ttk.LabelFrame(self.root, text="Panduan Alur Kerja", padding=16)
+        container.pack(fill=tk.X, padx=20, pady=(0, 12))
+
+        steps = [
+            ("Langkah 1", "Buat atau muat file konfigurasi.", "config"),
+            (
+                "Langkah 2",
+                "Tambahkan akun YouTube dan pastikan setiap akun memiliki file cookie.",
+                "accounts",
+            ),
+            (
+                "Langkah 3",
+                "Lengkapi integrasi Google Sheets dan Drive, termasuk pemetaan kolom.",
+                "integrations",
+            ),
+            (
+                "Langkah 4",
+                "Atur jadwal unggah beserta preferensi Selenium dan pembersihan.",
+                "schedule",
+            ),
+            (
+                "Langkah 5",
+                "Kelola cookie serta jalankan pengujian sebelum memulai layanan.",
+                "testing",
+            ),
+        ]
+
+        for idx, (title, description, key) in enumerate(steps):
+            step_frame = ttk.Frame(container)
+            step_frame.pack(fill=tk.X, pady=(0, 8))
+            step_frame.grid_columnconfigure(1, weight=1)
+
+            number_label = ttk.Label(
+                step_frame,
+                text=str(idx + 1),
+                width=3,
+                anchor="center",
+                font=("Segoe UI", 14, "bold"),
+                padding=4,
+            )
+            number_label.grid(row=0, column=0, rowspan=3, sticky="n", padx=(0, 12))
+
+            ttk.Label(step_frame, text=title, font=("Segoe UI", 11, "bold")).grid(
+                row=0,
+                column=1,
+                sticky="w",
+            )
+            ttk.Label(step_frame, text=description, wraplength=720, foreground="#444444").grid(
+                row=1,
+                column=1,
+                sticky="w",
+                pady=(2, 0),
+            )
+            self.workflow_status_vars[key].set(description)
+            ttk.Label(
+                step_frame,
+                textvariable=self.workflow_status_vars[key],
+                wraplength=720,
+                foreground="#0b5394",
+            ).grid(row=2, column=1, sticky="w", pady=(4, 0))
+
+            if idx < len(steps) - 1:
+                ttk.Separator(container).pack(fill=tk.X, pady=2)
+
+    def _update_workflow_summary(self) -> None:
+        if self.config_path:
+            config_status = f"Mengedit konfigurasi: {self._display_path(self.config_path)}"
+        elif self.accounts_data or self.unsaved_changes:
+            config_status = (
+                "Konfigurasi baru sedang diedit. Gunakan tombol 'Simpan' untuk menyimpan ke berkas."
+            )
+        else:
+            config_status = "Belum ada konfigurasi. Mulai dengan 'Konfigurasi Baru' atau 'Muat…'."
+        self.workflow_status_vars["config"].set(config_status)
+
+        total_accounts = len(self.accounts_data)
+        completed_accounts = sum(
+            1
+            for account in self.accounts_data
+            if account.get("name", "").strip() and account.get("cookie_file", "").strip()
+        )
+        if total_accounts == 0:
+            accounts_status = "Belum ada akun. Tambahkan minimal satu akun melalui daftar di bawah."
+        elif completed_accounts == total_accounts:
+            accounts_status = f"{total_accounts} akun siap dengan nama dan path cookie."
+        else:
+            accounts_status = (
+                f"Lengkapi data akun: {completed_accounts} dari {total_accounts} akun memiliki nama dan cookie."
+            )
+        self.workflow_status_vars["accounts"].set(accounts_status)
+
+        service_account = self.google_service_file_var.get().strip()
+        spreadsheet_id = self.google_spreadsheet_var.get().strip()
+        worksheet = self.google_worksheet_var.get().strip()
+        missing_items = []
+        if not service_account:
+            missing_items.append("Service Account JSON")
+        if not spreadsheet_id:
+            missing_items.append("Spreadsheet ID")
+        if not worksheet:
+            missing_items.append("Worksheet")
+        if missing_items:
+            integrations_status = "Lengkapi bagian Google: " + ", ".join(missing_items) + "."
+        else:
+            integrations_status = (
+                f"Spreadsheet '{spreadsheet_id}' dan worksheet '{worksheet}' siap digunakan."
+            )
+        self.workflow_status_vars["integrations"].set(integrations_status)
+
+        schedule_times = [item.strip() for item in self.schedule_times_var.get().split(",") if item.strip()]
+        timezone = self.schedule_timezone_var.get().strip() or "UTC"
+        driver_path = self.selenium_driver_var.get().strip()
+        randomize_text = "acak" if self.schedule_randomize_var.get() else "urut"
+        if schedule_times:
+            extras = []
+            if driver_path:
+                extras.append("driver ditentukan")
+            if self.selenium_headless_var.get():
+                extras.append("mode headless")
+            schedule_status = f"{len(schedule_times)} jadwal di zona {timezone} dengan urutan {randomize_text}."
+            if extras:
+                schedule_status += " (" + ", ".join(extras) + ")"
+        else:
+            schedule_status = "Masukkan minimal satu jam penjadwalan di bagian Jadwal."
+        self.workflow_status_vars["schedule"].set(schedule_status)
+
+        if not self.accounts_data:
+            testing_status = "Tambahkan akun dan simpan konfigurasi untuk mengelola cookie."
+        elif not self.accounts:
+            testing_status = "Simpan konfigurasi agar akun tersedia di tab Cookie."
+        else:
+            testing_status = (
+                "Kelola cookie melalui tab Cookie, kemudian gunakan tab Pengujian untuk memverifikasi akses Sheets dan Drive."
+            )
+
+        sheet_feedback = self.sheet_status_var.get().strip()
+        drive_feedback = self.drive_status_var.get().strip()
+        feedback_messages = []
+        default_sheet = "Tekan tombol untuk menguji koneksi Google Sheets."
+        default_drive = "Masukkan File ID atau URL untuk menguji akses Google Drive."
+        if self._recent_cookie_feedback:
+            feedback_messages.append(self._recent_cookie_feedback)
+        if sheet_feedback and sheet_feedback != default_sheet:
+            feedback_messages.append(f"Sheets: {sheet_feedback}")
+        if drive_feedback and drive_feedback != default_drive:
+            feedback_messages.append(f"Drive: {drive_feedback}")
+        if feedback_messages:
+            testing_status += " " + " ".join(feedback_messages)
+
+        self.workflow_status_vars["testing"].set(testing_status)
     def _create_config_variables(self) -> None:
         self.google_service_file_var = tk.StringVar()
         self.google_spreadsheet_var = tk.StringVar()
@@ -191,20 +356,29 @@ class UploaderGUI:
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        file_frame = ttk.LabelFrame(scroll_frame, text="File Konfigurasi")
+        file_frame = ttk.LabelFrame(scroll_frame, text="Langkah 1 · File Konfigurasi")
         file_frame.pack(fill=tk.X, padx=4, pady=(0, 12))
 
         self.config_path_var = tk.StringVar()
 
+        ttk.Label(
+            file_frame,
+            text=(
+                "Mulai dengan membuat konfigurasi baru atau memuat file YAML yang sudah ada. "
+                "Gunakan tombol Simpan untuk menyimpan perubahan sebelum menjalankan layanan."
+            ),
+            wraplength=760,
+        ).grid(row=0, column=0, columnspan=5, sticky="w", padx=12, pady=(12, 4))
+
         entry = ttk.Entry(file_frame, textvariable=self.config_path_var, state="readonly")
-        entry.grid(row=0, column=0, sticky="ew", padx=(12, 8), pady=12)
+        entry.grid(row=1, column=0, sticky="ew", padx=(12, 8), pady=(0, 12))
 
         ttk.Button(file_frame, text="Konfigurasi Baru", command=self._create_new_config).grid(
-            row=0, column=1, padx=4
+            row=1, column=1, padx=4
         )
-        ttk.Button(file_frame, text="Muat…", command=self.load_config_dialog).grid(row=0, column=2, padx=4)
-        ttk.Button(file_frame, text="Simpan", command=self.save_config).grid(row=0, column=3, padx=4)
-        ttk.Button(file_frame, text="Simpan Sebagai…", command=self.save_config_as).grid(row=0, column=4, padx=4)
+        ttk.Button(file_frame, text="Muat…", command=self.load_config_dialog).grid(row=1, column=2, padx=4)
+        ttk.Button(file_frame, text="Simpan", command=self.save_config).grid(row=1, column=3, padx=4)
+        ttk.Button(file_frame, text="Simpan Sebagai…", command=self.save_config_as).grid(row=1, column=4, padx=4)
 
         file_frame.grid_columnconfigure(0, weight=1)
 
@@ -217,8 +391,17 @@ class UploaderGUI:
         self._build_retry_section(scroll_frame)
 
     def _build_account_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="Akun YouTube")
+        frame = ttk.LabelFrame(parent, text="Langkah 2 · Akun YouTube")
         frame.pack(fill=tk.X, padx=4, pady=6)
+
+        ttk.Label(
+            frame,
+            text=(
+                "Tambahkan setiap akun YouTube yang akan digunakan. Simpan perubahan akun sebelum beralih "
+                "ke akun lain untuk menghindari kehilangan data."
+            ),
+            wraplength=760,
+        ).pack(anchor="w", padx=12, pady=(8, 0))
 
         list_frame = ttk.Frame(frame)
         list_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=8)
@@ -255,20 +438,38 @@ class UploaderGUI:
         form.grid_columnconfigure(1, weight=1)
 
     def _build_google_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="Integrasi Google")
+        frame = ttk.LabelFrame(parent, text="Langkah 3 · Integrasi Google")
         frame.pack(fill=tk.X, padx=4, pady=6)
 
-        entry = self._labeled_entry(frame, "Service Account JSON", self.google_service_file_var, 0)
-        ttk.Button(frame, text="Pilih…", command=self._browse_service_account).grid(row=0, column=2, padx=(8, 0))
+        ttk.Label(
+            frame,
+            text=(
+                "Gunakan credential Service Account dengan akses ke spreadsheet Anda. Pastikan ID spreadsheet "
+                "dan worksheet sesuai dengan sumber data video."
+            ),
+            wraplength=760,
+        ).grid(row=0, column=0, columnspan=3, sticky="w", padx=12, pady=(8, 4))
 
-        self._labeled_entry(frame, "Spreadsheet ID", self.google_spreadsheet_var, 1)
-        self._labeled_entry(frame, "Worksheet", self.google_worksheet_var, 2)
+        entry = self._labeled_entry(frame, "Service Account JSON", self.google_service_file_var, 1)
+        ttk.Button(frame, text="Pilih…", command=self._browse_service_account).grid(row=1, column=2, padx=(8, 0))
+
+        self._labeled_entry(frame, "Spreadsheet ID", self.google_spreadsheet_var, 2)
+        self._labeled_entry(frame, "Worksheet", self.google_worksheet_var, 3)
 
         frame.grid_columnconfigure(1, weight=1)
 
     def _build_sheet_mapping_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="Pemetaan Kolom Google Sheet")
+        frame = ttk.LabelFrame(parent, text="Langkah 3 · Pemetaan Kolom Google Sheet")
         frame.pack(fill=tk.X, padx=4, pady=6)
+
+        ttk.Label(
+            frame,
+            text=(
+                "Sesuaikan nama kolom di Google Sheet dengan field yang diperlukan aplikasi. Kolom yang kosong "
+                "akan diabaikan, namun pastikan kolom utama terisi."
+            ),
+            wraplength=760,
+        ).grid(row=0, column=0, columnspan=4, sticky="w", padx=12, pady=(8, 4))
 
         fields = [
             ("Judul", "title"),
@@ -288,7 +489,7 @@ class UploaderGUI:
         ]
 
         for idx, (label, key) in enumerate(fields):
-            row = idx // 2
+            row = idx // 2 + 1
             column = (idx % 2) * 2
             self._labeled_entry(frame, label, self.sheet_mapping_vars[key], row, column)
 
@@ -296,57 +497,87 @@ class UploaderGUI:
             frame.grid_columnconfigure(idx + 1, weight=1)
 
     def _build_schedule_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="Penjadwalan Unggahan")
+        frame = ttk.LabelFrame(parent, text="Langkah 4 · Penjadwalan Unggahan")
         frame.pack(fill=tk.X, padx=4, pady=6)
 
-        self._labeled_entry(frame, "Jam (pisahkan dengan koma)", self.schedule_times_var, 0)
-        self._labeled_entry(frame, "Zona Waktu", self.schedule_timezone_var, 1)
+        ttk.Label(
+            frame,
+            text=(
+                "Tentukan jam penayangan video dalam format 24 jam, dipisahkan koma. Zona waktu default dapat diubah "
+                "sesuai kebutuhan, dan opsi acak membantu merotasi urutan setiap hari."
+            ),
+            wraplength=760,
+        ).grid(row=0, column=0, columnspan=3, sticky="w", padx=12, pady=(8, 4))
+
+        self._labeled_entry(frame, "Jam (pisahkan dengan koma)", self.schedule_times_var, 1)
+        self._labeled_entry(frame, "Zona Waktu", self.schedule_timezone_var, 2)
 
         randomize_check = ttk.Checkbutton(frame, text="Acak urutan jam setiap hari", variable=self.schedule_randomize_var)
-        randomize_check.grid(row=2, column=1, sticky="w", pady=(4, 0))
+        randomize_check.grid(row=3, column=1, sticky="w", pady=(4, 0))
 
         frame.grid_columnconfigure(1, weight=1)
 
     def _build_selenium_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="Pengaturan Selenium")
+        frame = ttk.LabelFrame(parent, text="Langkah 4 · Preferensi Selenium")
         frame.pack(fill=tk.X, padx=4, pady=6)
 
-        self._labeled_entry(frame, "Path Driver", self.selenium_driver_var, 0)
-        ttk.Button(frame, text="Pilih…", command=self._browse_driver_path).grid(row=0, column=2, padx=(8, 0))
+        ttk.Label(
+            frame,
+            text=(
+                "Atur lokasi driver serta preferensi browser otomatis. Kosongkan field yang tidak digunakan; "
+                "aplikasi akan menggunakan nilai bawaan bila tersedia."
+            ),
+            wraplength=760,
+        ).grid(row=0, column=0, columnspan=3, sticky="w", padx=12, pady=(8, 4))
+
+        self._labeled_entry(frame, "Path Driver", self.selenium_driver_var, 1)
+        ttk.Button(frame, text="Pilih…", command=self._browse_driver_path).grid(row=1, column=2, padx=(8, 0))
 
         headless_check = ttk.Checkbutton(frame, text="Jalankan browser dalam mode headless", variable=self.selenium_headless_var)
-        headless_check.grid(row=1, column=1, sticky="w", pady=(4, 0))
+        headless_check.grid(row=2, column=1, sticky="w", pady=(4, 0))
 
-        self._labeled_entry(frame, "User Agent", self.selenium_user_agent_var, 2)
-        self._labeled_entry(frame, "Folder Unduhan", self.selenium_download_dir_var, 3)
-        ttk.Button(frame, text="Pilih…", command=self._browse_download_dir).grid(row=3, column=2, padx=(8, 0))
+        self._labeled_entry(frame, "User Agent", self.selenium_user_agent_var, 3)
+        self._labeled_entry(frame, "Folder Unduhan", self.selenium_download_dir_var, 4)
+        ttk.Button(frame, text="Pilih…", command=self._browse_download_dir).grid(row=4, column=2, padx=(8, 0))
 
         frame.grid_columnconfigure(1, weight=1)
 
     def _build_cleanup_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="Perawatan & Log")
+        frame = ttk.LabelFrame(parent, text="Langkah 4 · Perawatan & Log")
         frame.pack(fill=tk.X, padx=4, pady=6)
 
-        self._labeled_entry(frame, "Folder Log", self.cleanup_log_dir_var, 0)
-        ttk.Button(frame, text="Pilih…", command=self._browse_log_dir).grid(row=0, column=2, padx=(8, 0))
+        ttk.Label(
+            frame,
+            text="Tetapkan lokasi log dan berapa lama log akan disimpan sebelum dibersihkan otomatis.",
+            wraplength=760,
+        ).grid(row=0, column=0, columnspan=3, sticky="w", padx=12, pady=(8, 4))
 
-        self._labeled_entry(frame, "Retensi Log (hari)", self.cleanup_retention_var, 1)
+        self._labeled_entry(frame, "Folder Log", self.cleanup_log_dir_var, 1)
+        ttk.Button(frame, text="Pilih…", command=self._browse_log_dir).grid(row=1, column=2, padx=(8, 0))
+
+        self._labeled_entry(frame, "Retensi Log (hari)", self.cleanup_retention_var, 2)
 
         remove_check = ttk.Checkbutton(
             frame,
             text="Hapus video dari komputer setelah berhasil diunggah",
             variable=self.cleanup_remove_uploaded_var,
         )
-        remove_check.grid(row=2, column=1, sticky="w", pady=(4, 0))
+        remove_check.grid(row=3, column=1, sticky="w", pady=(4, 0))
 
         frame.grid_columnconfigure(1, weight=1)
 
     def _build_retry_section(self, parent: ttk.Frame) -> None:
-        frame = ttk.LabelFrame(parent, text="Pengaturan Retry")
+        frame = ttk.LabelFrame(parent, text="Langkah 4 · Pengaturan Retry")
         frame.pack(fill=tk.X, padx=4, pady=6)
 
-        self._labeled_entry(frame, "Maksimum Percobaan", self.max_retries_var, 0)
-        self._labeled_entry(frame, "Jeda Antar Percobaan (detik)", self.retry_interval_var, 1)
+        ttk.Label(
+            frame,
+            text="Sesuaikan jumlah percobaan ulang dan jeda antar percobaan untuk menjaga stabilitas unggahan.",
+            wraplength=760,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", padx=12, pady=(8, 4))
+
+        self._labeled_entry(frame, "Maksimum Percobaan", self.max_retries_var, 1)
+        self._labeled_entry(frame, "Jeda Antar Percobaan (detik)", self.retry_interval_var, 2)
 
         frame.grid_columnconfigure(1, weight=1)
 
@@ -357,7 +588,8 @@ class UploaderGUI:
         description = ttk.Label(
             tab,
             text=(
-                "Tempelkan JSON cookie dari browser atau muat dari file, lalu simpan ke akun yang dipilih.\n"
+                "Gunakan tab ini setelah konfigurasi disimpan untuk mengelola cookie setiap akun. "
+                "Pilih akun pada daftar, muat atau tempel JSON cookie, lalu tekan Simpan untuk memperbarui file cookie.\n"
                 "Cookie dapat diekspor menggunakan ekstensi seperti Cookie-Editor di Google Chrome."
             ),
             wraplength=760,
@@ -444,6 +676,18 @@ class UploaderGUI:
     def _build_testing_tab(self) -> None:
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="Pengujian")
+
+        intro = ttk.Label(
+            tab,
+            text=(
+                "Gunakan langkah terakhir ini untuk memastikan seluruh integrasi berjalan sebelum menjalankan layanan. "
+                "Mulai dengan menguji koneksi Sheets, kemudian pastikan file dapat diunduh dari Google Drive."
+            ),
+            wraplength=760,
+            justify=tk.LEFT,
+            padding=12,
+        )
+        intro.pack(fill=tk.X, padx=12, pady=(12, 0))
 
         sheet_frame = ttk.LabelFrame(tab, text="Koneksi Google Sheets", padding=12)
         sheet_frame.pack(fill=tk.X, padx=12, pady=(12, 6))
@@ -549,6 +793,8 @@ class UploaderGUI:
         self._loading_form = False
         self.unsaved_changes = True
         self.unsaved_info_var.set("Perubahan konfigurasi belum disimpan.")
+        self._recent_cookie_feedback = ""
+        self._update_workflow_summary()
 
     def load_config_dialog(self) -> None:
         file_path = filedialog.askopenfilename(
@@ -612,6 +858,8 @@ class UploaderGUI:
         self._refresh_account_list()
         self._refresh_cookie_accounts()
         self.start_button.config(state=tk.NORMAL)
+        self._recent_cookie_feedback = ""
+        self._update_workflow_summary()
 
     def save_config(self) -> bool:
         if self.config_path is None:
@@ -658,6 +906,8 @@ class UploaderGUI:
         self.status_var.set(f"Konfigurasi tersimpan di {self.config_path}.")
         self.start_button.config(state=tk.NORMAL)
         self._refresh_cookie_accounts()
+        self._recent_cookie_feedback = ""
+        self._update_workflow_summary()
         return True
 
     def _collect_config_data(self) -> dict[str, Any]:
@@ -759,10 +1009,12 @@ class UploaderGUI:
         self.config_path_var.set("")
         self.config_info_var.set("Belum ada file konfigurasi dipilih.")
         self.accounts = []
+        self._recent_cookie_feedback = ""
         self._set_default_form()
         self._refresh_cookie_accounts()
         self.start_button.config(state=tk.DISABLED)
         self.status_var.set("Konfigurasi baru siap diedit. Simpan untuk mulai menggunakan.")
+        self._update_workflow_summary()
 
     def _refresh_account_list(self) -> None:
         previous_index = self._current_account_index
@@ -806,6 +1058,7 @@ class UploaderGUI:
         self.unsaved_info_var.set("Perubahan konfigurasi belum disimpan.")
         self._current_account_index = len(self.accounts_data) - 1
         self._refresh_account_list()
+        self._update_workflow_summary()
 
     def _remove_account(self) -> None:
         selection = self.account_listbox.curselection()
@@ -821,6 +1074,7 @@ class UploaderGUI:
         else:
             self._current_account_index = None
         self._refresh_account_list()
+        self._update_workflow_summary()
 
     def _apply_account_changes(self) -> None:
         if self._current_account_index is None:
@@ -839,6 +1093,7 @@ class UploaderGUI:
         self.unsaved_changes = True
         self.unsaved_info_var.set("Perubahan konfigurasi belum disimpan.")
         self._refresh_account_list()
+        self._update_workflow_summary()
 
     def _browse_cookie_file(self) -> None:
         file_path = filedialog.askopenfilename(
@@ -887,12 +1142,15 @@ class UploaderGUI:
             self.save_cookie_button.config(state=tk.DISABLED)
             self.paste_cookie_button.config(state=tk.DISABLED)
             self.clear_cookie_button.config(state=tk.DISABLED)
+            self._recent_cookie_feedback = ""
+            self._update_workflow_summary()
             return
 
         self.account_combo["values"] = account_names
         if self.account_choice_var.get() not in account_names:
             self.account_choice_var.set(account_names[0])
         self._load_selected_cookie_into_editor()
+        self._update_workflow_summary()
 
     def _on_cookie_account_change(self, event: Any | None = None) -> None:
         self._load_selected_cookie_into_editor()
@@ -985,12 +1243,16 @@ class UploaderGUI:
         self.status_var.set(
             "Data cookie ditempel dari clipboard. Simpan untuk menyimpannya ke file akun."
         )
+        self._recent_cookie_feedback = "Cookie ditempel dari clipboard."
+        self._update_workflow_summary()
 
     def clear_cookie_editor(self) -> None:
         self.cookie_text.config(state=tk.NORMAL)
         self.cookie_text.delete("1.0", tk.END)
         self.cookie_text.focus_set()
         self.status_var.set("Editor cookie dikosongkan. Tempel atau muat cookie baru sebelum menyimpan.")
+        self._recent_cookie_feedback = "Editor cookie dikosongkan."
+        self._update_workflow_summary()
 
     # ------------------------------------------------------------------
     # Cookie management
@@ -1014,6 +1276,8 @@ class UploaderGUI:
         self.cookie_text.insert(tk.END, formatted)
         self.cookie_text.config(state=tk.NORMAL)
         self.status_var.set(f"Cookie dari {file_path} siap disimpan ke akun terpilih.")
+        self._recent_cookie_feedback = f"Cookie dari file {Path(file_path).name} dimuat."
+        self._update_workflow_summary()
 
     def save_cookie_data(self) -> None:
         account_name = self.account_choice_var.get()
@@ -1047,6 +1311,10 @@ class UploaderGUI:
         )
         self.status_var.set(
             f"Cookie untuk akun '{account.name}' tersimpan. Anda dapat langsung menjalankan uploader.")
+        self._recent_cookie_feedback = (
+            f"Cookie untuk akun '{account.name}' berhasil disimpan."
+        )
+        self._update_workflow_summary()
 
     # ------------------------------------------------------------------
     # Testing utilities
@@ -1056,22 +1324,26 @@ class UploaderGUI:
             config = self._build_config_object()
         except ValueError as exc:
             self.sheet_status_var.set(f"Konfigurasi tidak valid: {exc}")
+            self._update_workflow_summary()
             return
         try:
             client = GoogleSheetClient(config)
             worksheet_title = client.worksheet.title
         except Exception as exc:  # pragma: no cover - UI feedback
             self.sheet_status_var.set(f"Gagal terhubung ke Google Sheets: {exc}")
+            self._update_workflow_summary()
             return
         self.sheet_status_var.set(
             f"Berhasil terhubung ke spreadsheet '{worksheet_title}'. Data siap digunakan."
         )
+        self._update_workflow_summary()
 
     def test_google_drive(self) -> None:
         file_id = self.drive_file_id_var.get().strip()
         url = self.drive_url_var.get().strip()
         if not file_id and not url:
             self.drive_status_var.set("Masukkan File ID atau URL untuk melakukan pengujian.")
+            self._update_workflow_summary()
             return
         downloader = GoogleDriveDownloader()
         temp_path = Path(tempfile.gettempdir()) / f"ytuploader-test-{uuid.uuid4().hex}.tmp"
@@ -1081,9 +1353,11 @@ class UploaderGUI:
             self.drive_status_var.set(f"Gagal mengakses file Google Drive: {exc}")
             if temp_path.exists():
                 temp_path.unlink(missing_ok=True)
+            self._update_workflow_summary()
             return
         temp_path.unlink(missing_ok=True)
         self.drive_status_var.set("File dapat diunduh dari Google Drive. Koneksi berhasil.")
+        self._update_workflow_summary()
 
     def _build_config_object(self) -> AppConfig:
         data = self._collect_config_data()
@@ -1137,6 +1411,7 @@ class UploaderGUI:
             return
         self.unsaved_changes = True
         self.unsaved_info_var.set("Perubahan konfigurasi belum disimpan.")
+        self._update_workflow_summary()
 
 
 def main() -> None:
