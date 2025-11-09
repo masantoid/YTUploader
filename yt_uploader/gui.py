@@ -56,6 +56,9 @@ class UploaderGUI:
             pass
         style.configure("TNotebook", padding=6)
         style.configure("Accent.TButton", font=("Segoe UI", 10, "bold"))
+        style.configure("TLabelframe", padding=12)
+        style.configure("TLabelframe.Label", font=("Segoe UI", 10, "bold"))
+        style.configure("TButton", padding=6)
 
         header = ttk.Frame(self.root, padding=20)
         header.pack(fill=tk.X)
@@ -348,7 +351,7 @@ class UploaderGUI:
         frame.grid_columnconfigure(1, weight=1)
 
     def _build_cookie_tab(self) -> None:
-        tab = ttk.Frame(self.notebook)
+        tab = ttk.Frame(self.notebook, padding=12)
         self.notebook.add(tab, text="Cookie")
 
         description = ttk.Label(
@@ -361,39 +364,80 @@ class UploaderGUI:
             padding=12,
             justify=tk.LEFT,
         )
-        description.pack(fill=tk.X)
+        description.grid(row=0, column=0, sticky="ew")
 
-        select_frame = ttk.Frame(tab, padding=(12, 0))
-        select_frame.pack(fill=tk.X)
+        tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(2, weight=1)
 
-        ttk.Label(select_frame, text="Akun").pack(side=tk.LEFT)
-        self.account_combo = ttk.Combobox(select_frame, textvariable=self.account_choice_var, state="readonly", width=40)
-        self.account_combo.pack(side=tk.LEFT, padx=(8, 0))
+        select_frame = ttk.Frame(tab)
+        select_frame.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        select_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(select_frame, text="Akun").grid(row=0, column=0, sticky="w")
+        self.account_combo = ttk.Combobox(
+            select_frame,
+            textvariable=self.account_choice_var,
+            state="readonly",
+            width=40,
+        )
+        self.account_combo.grid(row=0, column=1, sticky="ew", padx=(8, 0))
+        self.account_combo.bind("<<ComboboxSelected>>", self._on_cookie_account_change)
 
         button_frame = ttk.Frame(select_frame)
-        button_frame.pack(side=tk.LEFT, padx=(12, 0))
+        button_frame.grid(row=0, column=2, sticky="e", padx=(12, 0))
 
         self.load_cookie_button = ttk.Button(
             button_frame,
-            text="Muat File Cookie",
+            text="Muat File",
             command=self.load_cookie_file,
             state=tk.DISABLED,
         )
-        self.load_cookie_button.pack(side=tk.LEFT, padx=(0, 6))
+        self.load_cookie_button.grid(row=0, column=0, padx=(0, 6))
+
+        self.paste_cookie_button = ttk.Button(
+            button_frame,
+            text="Tempel Clipboard",
+            command=self.paste_cookie_from_clipboard,
+            state=tk.DISABLED,
+        )
+        self.paste_cookie_button.grid(row=0, column=1, padx=(0, 6))
+
+        self.clear_cookie_button = ttk.Button(
+            button_frame,
+            text="Kosongkan",
+            command=self.clear_cookie_editor,
+            state=tk.DISABLED,
+        )
+        self.clear_cookie_button.grid(row=0, column=2, padx=(0, 6))
 
         self.save_cookie_button = ttk.Button(
             button_frame,
-            text="Simpan Cookie",
+            text="Simpan",
             command=self.save_cookie_data,
             state=tk.DISABLED,
+            style="Accent.TButton",
         )
-        self.save_cookie_button.pack(side=tk.LEFT)
+        self.save_cookie_button.grid(row=0, column=3)
 
-        text_frame = ttk.Frame(tab, padding=12)
-        text_frame.pack(fill=tk.BOTH, expand=True)
+        editor_frame = ttk.LabelFrame(tab, text="Editor Cookie JSON")
+        editor_frame.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
+        editor_frame.columnconfigure(0, weight=1)
+        editor_frame.rowconfigure(1, weight=1)
 
-        self.cookie_text = scrolledtext.ScrolledText(text_frame, wrap=tk.WORD, height=16)
-        self.cookie_text.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(
+            editor_frame,
+            text="Tempel JSON cookie Anda di bawah ini atau muat dari file. Data akan tersimpan ke akun yang dipilih.",
+            justify=tk.LEFT,
+            wraplength=740,
+        ).grid(row=0, column=0, sticky="w")
+
+        self.cookie_text = scrolledtext.ScrolledText(
+            editor_frame,
+            wrap=tk.WORD,
+            height=16,
+            font=("Consolas", 10),
+        )
+        self.cookie_text.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
         self.cookie_text.insert(tk.END, "Muat konfigurasi terlebih dahulu untuk mengelola cookie.")
         self.cookie_text.config(state=tk.DISABLED)
 
@@ -841,17 +885,112 @@ class UploaderGUI:
             self.cookie_text.config(state=tk.DISABLED)
             self.load_cookie_button.config(state=tk.DISABLED)
             self.save_cookie_button.config(state=tk.DISABLED)
+            self.paste_cookie_button.config(state=tk.DISABLED)
+            self.clear_cookie_button.config(state=tk.DISABLED)
             return
 
         self.account_combo["values"] = account_names
         if self.account_choice_var.get() not in account_names:
             self.account_choice_var.set(account_names[0])
+        self._load_selected_cookie_into_editor()
+
+    def _on_cookie_account_change(self, event: Any | None = None) -> None:
+        self._load_selected_cookie_into_editor()
+
+    def _load_selected_cookie_into_editor(self) -> None:
+        account_name = self.account_choice_var.get()
+        account = next((acc for acc in self.accounts if acc.name == account_name), None)
+        if account is None:
+            self.cookie_text.config(state=tk.NORMAL)
+            self.cookie_text.delete("1.0", tk.END)
+            self.cookie_text.insert(tk.END, "Pilih akun untuk mengelola cookie.")
+            self.cookie_text.config(state=tk.DISABLED)
+            self.load_cookie_button.config(state=tk.DISABLED)
+            self.save_cookie_button.config(state=tk.DISABLED)
+            self.paste_cookie_button.config(state=tk.DISABLED)
+            self.clear_cookie_button.config(state=tk.DISABLED)
+            return
+
+        for button in (
+            self.load_cookie_button,
+            self.save_cookie_button,
+            self.paste_cookie_button,
+            self.clear_cookie_button,
+        ):
+            button.config(state=tk.NORMAL)
+
         self.cookie_text.config(state=tk.NORMAL)
         self.cookie_text.delete("1.0", tk.END)
-        self.cookie_text.insert(tk.END, "Pilih akun untuk mengelola cookie.")
-        self.cookie_text.config(state=tk.DISABLED)
-        self.load_cookie_button.config(state=tk.NORMAL)
-        self.save_cookie_button.config(state=tk.NORMAL)
+
+        cookie_path = account.cookie_file
+        display_path = self._display_path(cookie_path)
+        if cookie_path.exists():
+            try:
+                with open(cookie_path, "r", encoding="utf-8") as fh:
+                    data = json.load(fh)
+            except json.JSONDecodeError as exc:  # pragma: no cover - UI feedback
+                messagebox.showwarning(
+                    "Cookie Tidak Valid",
+                    f"File cookie '{display_path}' tidak berisi JSON yang valid: {exc}",
+                )
+                self.status_var.set(
+                    f"File cookie '{display_path}' tidak valid. Tempel atau muat ulang data cookie."
+                )
+            except OSError as exc:  # pragma: no cover - UI feedback
+                messagebox.showwarning(
+                    "Cookie Tidak Dapat Dibuka",
+                    f"File cookie '{display_path}' tidak dapat dibaca: {exc}",
+                )
+                self.status_var.set(
+                    f"File cookie '{display_path}' tidak dapat dibuka. Tempel atau muat ulang data cookie."
+                )
+            else:
+                formatted = json.dumps(data, ensure_ascii=False, indent=2)
+                self.cookie_text.insert(tk.END, formatted)
+                self.status_var.set(
+                    f"Cookie untuk akun '{account.name}' dimuat dari {display_path}. Simpan untuk memperbarui."
+                )
+                self.cookie_text.focus_set()
+                return
+
+        self.cookie_text.insert(tk.END, "")
+        self.cookie_text.focus_set()
+        self.status_var.set(
+            f"File cookie untuk akun '{account.name}' belum ditemukan. Tempel atau muat data cookie baru."
+        )
+
+    def paste_cookie_from_clipboard(self) -> None:
+        try:
+            clipboard_data = self.root.clipboard_get()
+        except tk.TclError:  # pragma: no cover - UI feedback
+            messagebox.showwarning("Clipboard Kosong", "Tidak ada data yang dapat ditempel dari clipboard.")
+            return
+
+        text = clipboard_data.strip()
+        self.cookie_text.config(state=tk.NORMAL)
+        self.cookie_text.delete("1.0", tk.END)
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            self.cookie_text.insert(tk.END, text)
+            messagebox.showwarning(
+                "Format Clipboard Tidak Valid",
+                "Data clipboard bukan JSON yang valid. Data tetap ditempel, periksa kembali sebelum menyimpan.",
+            )
+        else:
+            formatted = json.dumps(parsed, ensure_ascii=False, indent=2)
+            self.cookie_text.insert(tk.END, formatted)
+
+        self.cookie_text.focus_set()
+        self.status_var.set(
+            "Data cookie ditempel dari clipboard. Simpan untuk menyimpannya ke file akun."
+        )
+
+    def clear_cookie_editor(self) -> None:
+        self.cookie_text.config(state=tk.NORMAL)
+        self.cookie_text.delete("1.0", tk.END)
+        self.cookie_text.focus_set()
+        self.status_var.set("Editor cookie dikosongkan. Tempel atau muat cookie baru sebelum menyimpan.")
 
     # ------------------------------------------------------------------
     # Cookie management
