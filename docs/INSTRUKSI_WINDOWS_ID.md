@@ -16,7 +16,15 @@ Dokumen ini menjelaskan langkah demi langkah cara memasang, menjalankan, dan mem
    - Jalankan installer dan centang opsi **Add Python to PATH**, kemudian klik **Install Now**.
 
 3. **Siapkan kredensial Google**
-   - Pastikan Anda sudah memiliki file kredensial (`client_secret.json`) yang diperlukan untuk Google API sesuai kebutuhan proyek.
+   - Buka [Google Cloud Console](https://console.cloud.google.com/) dan buat proyek baru atau gunakan proyek yang sudah ada.
+   - Arahkan ke menu **APIs & Services → Library**, lalu aktifkan layanan berikut untuk proyek tersebut:
+     - **YouTube Data API v3** (mengelola unggahan ke YouTube).
+     - **Google Sheets API** (mengambil data dari spreadsheet penjadwalan).
+     - **Google Drive API** (mengunduh berkas video dari Drive, bila digunakan).
+   - Setelah semua API aktif, buka **APIs & Services → Credentials** dan pilih **Create Credentials → OAuth client ID**.
+   - Jika diminta, lengkapi layar persetujuan OAuth minimal pada level **External** dengan informasi dasar (nama aplikasi dan email).
+   - Pilih jenis aplikasi **Desktop app**, beri nama bebas, kemudian klik **Create**.
+   - Tekan tombol **Download JSON** pada kredensial yang baru dibuat untuk mendapatkan berkas `client_secret.json`, lalu simpan file tersebut di folder proyek YTUploader.
 
 ---
 
