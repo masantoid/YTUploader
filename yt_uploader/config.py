@@ -98,8 +98,8 @@ class AppConfig:
     google: GoogleConfig
     sheet_mapping: SheetMapping
     schedule: ScheduleConfig
-    selenium: SeleniumConfig = SeleniumConfig()
-    cleanup: CleanupConfig = CleanupConfig()
+    selenium: SeleniumConfig = dataclasses.field(default_factory=SeleniumConfig)
+    cleanup: CleanupConfig = dataclasses.field(default_factory=CleanupConfig)
     max_retries: int = 3
     retry_interval_seconds: int = 30
 
