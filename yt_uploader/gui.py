@@ -44,8 +44,8 @@ class UploaderGUI:
         self._loading_form = False
         self._current_account_index: int | None = None
 
-        self._build_widgets()
         self._create_config_variables()
+        self._build_widgets()
         self._set_default_form()
 
     def _build_widgets(self) -> None:
