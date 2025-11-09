@@ -1,0 +1,43 @@
+# Example configuration for the automated YouTube uploader.
+accounts:
+  - name: main-account
+    cookie_file: cookies/main-account.json
+    channel_url: https://studio.youtube.com/channel/XXXXXXXXXXXXX
+
+google:
+  service_account_file: credentials/service-account.json
+  spreadsheet_id: your_spreadsheet_id_here
+  worksheet_name: Sheet1
+
+sheet_mapping:
+  title: video_title
+  description: video_description
+  hashtags: video_hastags
+  tags: video_tags
+  filename: video_filename
+  drive_file_id: drive_file_id
+  drive_download_url: drive_download_url
+  altered_content: altered_content
+  made_for_kids: made_for_kids
+  status: UploadYT
+  youtube_url: YTUrl
+
+schedule:
+  times:
+    - "09:00"
+    - "15:00"
+    - "21:00"
+  randomize: false
+  timezone: Asia/Jakarta
+
+selenium:
+  headless: false
+  user_agent: null
+
+cleanup:
+  log_directory: logs
+  retention_days: 1
+  remove_uploaded_videos: true
+
+max_retries: 3
+retry_interval_seconds: 60
