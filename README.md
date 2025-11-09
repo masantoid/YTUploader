@@ -69,6 +69,14 @@ Gunakan tombol **Pilih Config** untuk memilih `config.yaml`, kemudian tekan **Mu
 
 Place cookie JSON exports in the `cookies/` directory with filenames matching account names (e.g., `main-account.json`). The application loads cookies before launching YouTube Studio and updates their timestamps to balance account usage.
 
+### Cara menyalin cookie dari browser
+
+1. Pasang ekstensi [Cookie-Editor](https://chrome.google.com/webstore/detail/cookie-editor/) di Google Chrome.
+2. Buka `https://studio.youtube.com`, pastikan akun Google yang ingin digunakan sudah masuk.
+3. Klik ikon Cookie-Editor → buka tab **Export** → tekan **Copy** untuk menyalin JSON cookie.
+4. Di antarmuka GUI YTUploader, pilih akun yang sesuai lalu tempel JSON tersebut pada kotak cookie atau muat file `.json` yang sudah Anda simpan.
+5. Klik **Simpan Cookie** untuk menyimpan data ke lokasi `cookie_file` yang ditentukan pada konfigurasi.
+
 ## Notes
 
 - The Selenium selectors may require adjustment if YouTube updates its Studio interface.
