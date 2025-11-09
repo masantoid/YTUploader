@@ -117,7 +117,13 @@ Langkah ini memungkinkan Anda mendistribusikan aplikasi sebagai berkas tunggal y
    - Opsi `--noconsole` menonaktifkan jendela terminal agar aplikasi terlihat seperti aplikasi desktop biasa.
    - Anda dapat menambahkan ikon khusus menggunakan `--icon path\ke\ikon.ico` bila diinginkan.
 3. Setelah proses selesai, file executable berada di folder `dist\YTUploaderGUI\YTUploaderGUI.exe`.
-4. Salin `config.yaml`, kredensial (`client_secret.json`), dan file pendukung lain ke folder yang sama dengan `YTUploaderGUI.exe`.
+4. Salin berkas pendukung ke folder yang sama dengan `YTUploaderGUI.exe` agar aplikasi dapat berjalan tanpa error:
+   - **`config.yaml`** – file utama yang menyimpan semua pengaturan.
+   - **`client_secret.json`** – hasil unduhan dari Google Cloud Console saat membuat OAuth client (digunakan ketika aplikasi perlu meminta izin login Google).
+   - **File kredensial lain yang dirujuk di `config.yaml`**, misalnya `credentials/service-account.json` untuk mengakses Google Sheets/Drive.
+   - **Folder atau file cookie akun YouTube** yang disebutkan pada bagian `accounts` di `config.yaml` (contoh: `cookies/main-account.json`).
+   - **Folder pendukung tambahan** yang Anda cantumkan di konfigurasi (misal folder `downloads/` khusus atau direktori log kustom).
+   Setelah menyalin, buka `config.yaml` dan pastikan jalur setiap berkas sudah benar terhadap lokasi `YTUploaderGUI.exe`.
 5. Distribusikan seluruh isi folder tersebut kepada pengguna akhir.
 
 > **Saran:** Uji jalankan `YTUploaderGUI.exe` pada komputer uji sebelum dibagikan ke pengguna untuk memastikan seluruh dependensi terpenuhi.
