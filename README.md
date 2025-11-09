@@ -48,6 +48,16 @@ python -m yt_uploader.main config.yaml
 
 The scheduler will run continuously, triggering uploads according to the configured schedule. Logs are written to the `logs/` directory and mirrored to stdout for visibility. The application configures a timed rotating log handler that keeps at most one day of history, automatically removing older log files to satisfy the 24-hour retention requirement.
 
+### Graphical Interface
+
+For users who prefer a desktop experience, launch the Tkinter-based UI:
+
+```bash
+python -m yt_uploader.gui
+```
+
+Gunakan tombol **Pilih Config** untuk memilih `config.yaml`, kemudian tekan **Mulai** untuk menyalakan penjadwal. Panduan instalasi lengkap dalam bahasa Indonesia tersedia di [`docs/INSTRUKSI_WINDOWS_ID.md`](docs/INSTRUKSI_WINDOWS_ID.md).
+
 ## Google Sheet Workflow
 
 1. Each row represents a video.
