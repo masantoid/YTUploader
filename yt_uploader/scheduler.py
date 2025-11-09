@@ -33,6 +33,7 @@ class UploadScheduler:
     def start(self, callback: Callable[[], None]) -> None:
         if self._thread and self._thread.is_alive():
             return
+        self._stop_event.clear()
         self._thread = threading.Thread(target=self._run, args=(callback,), daemon=True)
         self._thread.start()
 
@@ -40,6 +41,7 @@ class UploadScheduler:
         self._stop_event.set()
         if self._thread:
             self._thread.join()
+            self._thread = None
 
     def _run(self, callback: Callable[[], None]) -> None:
         while not self._stop_event.is_set():
