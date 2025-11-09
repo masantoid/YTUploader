@@ -80,6 +80,14 @@ Dokumen ini menjelaskan langkah demi langkah cara memasang, menjalankan, dan mem
 
 > **Catatan:** Log aktivitas tersimpan otomatis di folder log yang ditentukan pada konfigurasi (misalnya `logs/uploader.log`).
 
+### Mengelola Cookie Login Google/YouTube
+
+1. Pasang ekstensi [Cookie-Editor](https://chrome.google.com/webstore/detail/cookie-editor/) di Google Chrome.
+2. Buka `https://studio.youtube.com` dan pastikan akun yang benar sudah login.
+3. Klik ikon Cookie-Editor → pilih tab **Export** → tekan **Copy** untuk menyalin JSON cookie.
+4. Di GUI YTUploader, buka bagian **Manajemen Cookie Google/YouTube**, pilih akun yang diinginkan, kemudian tempel JSON pada kotak yang tersedia atau tekan **Muat File Cookie** bila Anda sudah menyimpannya sebagai `.json`.
+5. Klik **Simpan Cookie** untuk menulis data ke jalur `cookie_file` sesuai konfigurasi. Setelah tersimpan, aplikasi dapat langsung menggunakan sesi tersebut untuk otomatis login.
+
 ---
 
 ## 5. Menjalankan Aplikasi Melalui Command Line (Opsional)
